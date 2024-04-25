@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-db-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-db
+  template:
+    metadata:
+      labels:
+        app: java-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:12
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_DB
+              value: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-db-service
+spec:
+  selector:
+    app: java-db
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+
+---
+# Define a 'Persistent Voulume Claim'(PVC) for Postgress Storage, dynamically provisioned by cluster
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pv-claim # name of PVC essential for identifying the storage data
+  labels:
+    app: postgres
+    tier: database
+spec:
+  accessModes:
+    - ReadWriteOnce #This specifies the mode of the claim that we are trying to create.
+  resources:
+    requests:
+      storage: 1Gi #This will tell kubernetes about the amount of space we are trying to claim.
+

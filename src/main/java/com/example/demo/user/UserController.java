@@ -19,36 +19,50 @@ public class UserController {
     @Autowired
     private UserRespository userRepository;
 
+    @Autowired
+    private KafkaProducerService kafkaProducerService; // Inject KafkaProducerService
+
     @GetMapping
     public List<User> getAllUsers() {
+        kafkaProducerService.sendMessage("All users retrieved!");
         return userRepository.findAll();
     }
 
     @GetMapping("/{id}")
-    public User getUserById(@PathVariable Long userId) {
-        return userRepository.findById(userId).get();
+    public User getUserById(@PathVariable Long id) {
+        User user = userRepository.findById(id).orElse(null);
+        kafkaProducerService.sendMessage("User with Name : " + user.getFirstName() + " retrieved"); // Publish message
+        return user;
     }
 
     @PostMapping
     public User createUser(@RequestBody User user) {
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        kafkaProducerService.sendMessage("User created: " + savedUser.getId()); // Publish message to Kafka
+        return savedUser;
     }
 
     @PutMapping("/{id}")
-    public User updateUser(@PathVariable Long userId, @RequestBody User user) {
-        User existingUser = userRepository.findById(userId).get();
-        existingUser.setFirstName(user.getFirstName());
-        existingUser.setLastName(user.getLastName());
-        existingUser.setEmail(user.getEmail());
-        return userRepository.save(existingUser);
+    public User updateUser(@PathVariable Long id, @RequestBody User user) {
+        User existingUser = userRepository.findById(id).orElse(null);
+        if (existingUser != null) {
+            existingUser.setFirstName(user.getFirstName());
+            existingUser.setLastName(user.getLastName());
+            existingUser.setEmail(user.getEmail());
+            User updatedUser = userRepository.save(existingUser);
+            kafkaProducerService.sendMessage("User updated: " + updatedUser.getId()); // Publish message to Kafka
+            return updatedUser;
+        }
+        return null;
     }
 
     @DeleteMapping("/{id}")
-    public String deleteUser(@PathVariable Long userId) {
-        try {
-            userRepository.deleteById(userId);
+    public String deleteUser(@PathVariable Long id) {
+        if (userRepository.existsById(id)) {
+            userRepository.deleteById(id);
+            kafkaProducerService.sendMessage("User deleted: " + id); // Publish message to Kafka
             return "User deleted successfully";
-        } catch (Exception e) {
+        } else {
             return "User not found";
         }
     }
